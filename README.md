@@ -13,7 +13,7 @@ Mobile apps, client-facing web products, and the odd hardware/firmware project w
 
 - 🛠️ Currently building **BodyX** — a Flutter/iOS health & fitness app (private, in development)
 - 🎯 I care about the whole product loop, not just the code: design decisions, architecture, and the reasoning behind them
-- 📍 UK
+- 📍 UK🇺🇦
 
 <br>
 
