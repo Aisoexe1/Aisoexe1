@@ -23,8 +23,8 @@ Mobile apps, client-facing web products, and the odd hardware/firmware project w
 <tr>
 <td width="50%" valign="top">
 
-**[SOCO Ukraine](https://github.com/Aisoexe1/soco-ukraine)**
-Premium e-commerce storefront + CRM for a dental materials & equipment distributor.
+**[Dental Commerce Concepts](https://github.com/Aisoexe1/sample-dent)**
+Six visually distinct storefront directions for professional dental e-commerce.
 `JavaScript` `HTML` `CSS`
 
 </td>
@@ -62,20 +62,11 @@ A GitHub Pages bundle of product/UI design demos.
 <tr>
 <td width="50%" valign="top">
 
-**[SOCO Ukraine](https://aisoexe1.github.io/soco-ukraine/)**
-Premium dental e-commerce storefront and CRM experience.
-`E-commerce` `Dental` `JavaScript`
-
-</td>
-<td width="50%" valign="top">
-
 **[InvoicePilot](https://aisoexe1.github.io/invoicepilot/)**
 Live invoicing product built from concept to web app.
 `Product` `Web app` `JavaScript`
 
 </td>
-</tr>
-<tr>
 <td width="50%" valign="top">
 
 **[Portfolio Sites](https://aisoexe1.github.io/portfolio-sites/)**
@@ -83,6 +74,8 @@ A collection of polished web directions and interface experiments.
 `UI/UX` `Web design` `Frontend`
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
 **[Product Design Collection](https://aisoexe1.github.io/product-design-collection/)**
@@ -90,8 +83,6 @@ Interactive product and UI design demos.
 `Design systems` `React` `HTML`
 
 </td>
-</tr>
-<tr>
 <td width="50%" valign="top">
 
 **[Dental Commerce Concepts](https://aisoexe1.github.io/sample-dent/)**
@@ -99,7 +90,9 @@ Six distinctive directions for a professional dental e-commerce store.
 `Art direction` `HTML` `CSS` `JavaScript`
 
 </td>
-<td width="50%" valign="top">
+</tr>
+<tr>
+<td colspan="2" valign="top">
 
 **[BodyX Legal](https://aisoexe1.github.io/bodyx-legal/)**
 Legal and product-support surface for the BodyX health & fitness product.
