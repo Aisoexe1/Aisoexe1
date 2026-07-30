@@ -56,6 +56,61 @@ A GitHub Pages bundle of product/UI design demos.
 
 <br>
 
+## Live portfolio
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**[SOCO Ukraine](https://aisoexe1.github.io/soco-ukraine/)**
+Premium dental e-commerce storefront and CRM experience.
+`E-commerce` `Dental` `JavaScript`
+
+</td>
+<td width="50%" valign="top">
+
+**[InvoicePilot](https://aisoexe1.github.io/invoicepilot/)**
+Live invoicing product built from concept to web app.
+`Product` `Web app` `JavaScript`
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**[Portfolio Sites](https://aisoexe1.github.io/portfolio-sites/)**
+A collection of polished web directions and interface experiments.
+`UI/UX` `Web design` `Frontend`
+
+</td>
+<td width="50%" valign="top">
+
+**[Product Design Collection](https://aisoexe1.github.io/product-design-collection/)**
+Interactive product and UI design demos.
+`Design systems` `React` `HTML`
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**[Dental Commerce Concepts](https://aisoexe1.github.io/sample-dent/)**
+Six distinctive directions for a professional dental e-commerce store.
+`Art direction` `HTML` `CSS` `JavaScript`
+
+</td>
+<td width="50%" valign="top">
+
+**[BodyX Legal](https://aisoexe1.github.io/bodyx-legal/)**
+Legal and product-support surface for the BodyX health & fitness product.
+`Product` `Mobile` `Web`
+
+</td>
+</tr>
+</table>
+
+<br>
+
 ## Stack
 
 <p>
@@ -70,4 +125,3 @@ A GitHub Pages bundle of product/UI design demos.
 <img src="https://github-readme-streak-stats.herokuapp.com/?user=Aisoexe1&theme=tokyonight&hide_border=true" height="165" alt="GitHub streak" />
 
 </div>
-
