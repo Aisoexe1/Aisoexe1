@@ -52,6 +52,15 @@ A GitHub Pages bundle of product/UI design demos.
 
 </td>
 </tr>
+<tr>
+<td colspan="2" valign="top">
+
+**[Sonora](https://github.com/Aisoexe1/sonora)**
+Low-overhead cross-platform Audius player for macOS and Windows, built with Tauri and Rust.
+`Rust` `Tauri` `React` `Audius`
+
+</td>
+</tr>
 </table>
 
 <br>
