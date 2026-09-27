@@ -69,55 +69,132 @@ class MoodleClient:
     # ── Assignments ───────────────────────────────────────────────────────────
 
     async def get_assignments(self) -> list[dict]:
-        """Fetch upcoming assignments via Moodle AJAX calendar API."""
+        """Fetch assignments via Moodle AJAX calendar API + course fallback."""
         try:
             await self._page.goto(f"{MOODLE_URL}/my/", wait_until="domcontentloaded")
 
+            # Extract sesskey from multiple locations
             sesskey = await self._page.evaluate("""
-                () => window.M && window.M.cfg ? window.M.cfg.sesskey : null
-            """)
-            if not sesskey:
-                return await self._fallback_scrape()
-
-            now = int(datetime.now().timestamp())
-            future = int((datetime.now() + timedelta(days=30)).timestamp())
-
-            raw = await self._page.evaluate(f"""
-                async () => {{
-                    const r = await fetch('/lib/ajax/service.php?sesskey={sesskey}&info=core_calendar_get_action_events_by_timesort', {{
-                        method: 'POST',
-                        headers: {{'Content-Type': 'application/json'}},
-                        body: JSON.stringify([{{
-                            methodname: 'core_calendar_get_action_events_by_timesort',
-                            args: {{ timesortfrom: {now}, timesortto: {future}, limitnum: 50 }}
-                        }}])
-                    }});
-                    return await r.json();
-                }}
+                () => {
+                    if (window.M && window.M.cfg && window.M.cfg.sesskey)
+                        return window.M.cfg.sesskey;
+                    const m = document.cookie.match(/MoodleSession[^=]*=([^;]+)/);
+                    const el = document.querySelector('[data-sesskey]');
+                    if (el) return el.dataset.sesskey;
+                    const inp = document.querySelector('input[name="sesskey"]');
+                    if (inp) return inp.value;
+                    return null;
+                }
             """)
 
-            events = []
-            if raw and isinstance(raw, list) and raw[0].get("data"):
-                events = raw[0]["data"].get("events", [])
+            results = []
 
-            result = []
-            for ev in events:
-                ts = ev.get("timesort", 0)
-                result.append({
-                    "id": str(ev.get("id", "")),
-                    "title": ev.get("name", "").strip(),
-                    "course": (ev.get("course") or {}).get("fullname", ""),
-                    "due_timestamp": ts,
-                    "due_date": datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else "",
-                    "url": ev.get("url", ""),
-                    "module": ev.get("modulename", "assign"),
-                    "submitted": False,
-                })
-            return result
+            if sesskey:
+                # Wide range: 30 days back → 90 days forward (catch overdue + upcoming)
+                past   = int((datetime.now() - timedelta(days=30)).timestamp())
+                future = int((datetime.now() + timedelta(days=90)).timestamp())
+
+                raw = await self._page.evaluate(f"""
+                    async () => {{
+                        const r = await fetch('/lib/ajax/service.php?sesskey={sesskey}&info=core_calendar_get_action_events_by_timesort', {{
+                            method: 'POST',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify([{{
+                                methodname: 'core_calendar_get_action_events_by_timesort',
+                                args: {{ timesortfrom: {past}, timesortto: {future}, limitnum: 100 }}
+                            }}])
+                        }});
+                        return await r.json();
+                    }}
+                """)
+
+                events = []
+                if raw and isinstance(raw, list) and raw[0].get("data"):
+                    events = raw[0]["data"].get("events", [])
+
+                for ev in events:
+                    ts = ev.get("timesort", 0)
+                    results.append({
+                        "id": str(ev.get("id", "")),
+                        "title": ev.get("name", "").strip(),
+                        "course": (ev.get("course") or {}).get("fullname", ""),
+                        "due_timestamp": ts,
+                        "due_date": datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else "",
+                        "url": ev.get("url", ""),
+                        "module": ev.get("modulename", "assign"),
+                        "submitted": False,
+                    })
+
+            # If calendar API returned nothing, scan each enrolled course directly
+            if not results:
+                print("[moodle] calendar API empty — trying course scan")
+                results = await self._scan_courses()
+
+            # Final fallback: scrape dashboard HTML
+            if not results:
+                results = await self._fallback_scrape()
+
+            return results
 
         except Exception as e:
             print(f"[moodle] get_assignments error: {e}")
             return []
+
+    async def _scan_courses(self) -> list[dict]:
+        """Scan each enrolled course for assignment activities."""
+        results = []
+        try:
+            # Get course list from nav or course overview
+            await self._page.goto(f"{MOODLE_URL}/my/courses.php", wait_until="domcontentloaded")
+            course_links = await self._page.eval_on_selector_all(
+                "a[href*='/course/view.php']",
+                "els => els.map(e => ({href: e.href, text: e.innerText.trim()}))"
+            )
+            # Deduplicate
+            seen_urls = set()
+            courses = []
+            for c in course_links:
+                if c["href"] not in seen_urls and c["text"]:
+                    seen_urls.add(c["href"])
+                    cid = c["href"].split("id=")[-1]
+                    courses.append({"id": cid, "name": c["text"], "url": c["href"]})
+
+            for course in courses[:10]:  # limit to 10 courses
+                try:
+                    assign_url = f"{MOODLE_URL}/mod/assign/index.php?id={course['id']}"
+                    await self._page.goto(assign_url, wait_until="domcontentloaded")
+                    rows = await self._page.eval_on_selector_all(
+                        "table.generaltable tr:not(:first-child)",
+                        """rows => rows.map(r => {
+                            const a = r.querySelector("a");
+                            const cells = r.querySelectorAll("td");
+                            return {
+                                title: a ? a.innerText.trim() : "",
+                                url:   a ? a.href : "",
+                                due:   cells[2] ? cells[2].innerText.trim() : "",
+                                status: cells[3] ? cells[3].innerText.trim() : "",
+                            };
+                        })"""
+                    )
+                    for i, row in enumerate(rows):
+                        if not row.get("title"):
+                            continue
+                        uid = f"{course['id']}-{i}"
+                        results.append({
+                            "id": uid,
+                            "title": row["title"],
+                            "course": course["name"],
+                            "due_timestamp": 0,
+                            "due_date": row["due"],
+                            "url": row["url"],
+                            "module": "assign",
+                            "submitted": "submitted" in row.get("status", "").lower(),
+                        })
+                except Exception as ce:
+                    print(f"[moodle] course scan error {course['id']}: {ce}")
+        except Exception as e:
+            print(f"[moodle] _scan_courses error: {e}")
+        return results
 
     async def _fallback_scrape(self) -> list[dict]:
         result = []
