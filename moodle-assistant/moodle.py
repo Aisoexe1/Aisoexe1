@@ -147,17 +147,26 @@ class MoodleClient:
             # Get course list from nav or course overview
             await self._page.goto(f"{MOODLE_URL}/my/courses.php", wait_until="domcontentloaded")
             course_links = await self._page.eval_on_selector_all(
-                "a[href*='/course/view.php']",
+                "a[href*='/course/view.php'], a[href*='course/view']",
                 "els => els.map(e => ({href: e.href, text: e.innerText.trim()}))"
             )
+            # Also try dashboard if no courses found on courses page
+            if not course_links:
+                await self._page.goto(f"{MOODLE_URL}/my/", wait_until="domcontentloaded")
+                course_links = await self._page.eval_on_selector_all(
+                    "a[href*='/course/view.php'], a[href*='course/view']",
+                    "els => els.map(e => ({href: e.href, text: e.innerText.trim()}))"
+                )
             # Deduplicate
             seen_urls = set()
             courses = []
             for c in course_links:
-                if c["href"] not in seen_urls and c["text"]:
-                    seen_urls.add(c["href"])
-                    cid = c["href"].split("id=")[-1]
-                    courses.append({"id": cid, "name": c["text"], "url": c["href"]})
+                href = c["href"]
+                text = c["text"]
+                if href not in seen_urls and text and "id=" in href:
+                    seen_urls.add(href)
+                    cid = href.split("id=")[-1].split("&")[0]
+                    courses.append({"id": cid, "name": text, "url": href})
 
             for course in courses[:10]:  # limit to 10 courses
                 try:
@@ -219,6 +228,108 @@ class MoodleClient:
         except Exception as e:
             print(f"[moodle] fallback error: {e}")
         return result
+
+    # ── Debug ─────────────────────────────────────────────────────────────────
+
+    async def debug_scan(self) -> dict:
+        """Return diagnostic info to understand why scan might return 0 results."""
+        report: dict = {"steps": []}
+
+        def log(step: str, data):
+            report["steps"].append({"step": step, "data": data})
+
+        try:
+            # Step 1: dashboard
+            await self._page.goto(f"{MOODLE_URL}/my/", wait_until="domcontentloaded")
+            log("dashboard_url", self._page.url)
+            log("dashboard_title", await self._page.title())
+
+            # Step 2: sesskey
+            sesskey = await self._page.evaluate("""
+                () => {
+                    if (window.M && window.M.cfg && window.M.cfg.sesskey)
+                        return window.M.cfg.sesskey;
+                    const el = document.querySelector('[data-sesskey]');
+                    if (el) return el.dataset.sesskey;
+                    const inp = document.querySelector('input[name="sesskey"]');
+                    if (inp) return inp.value;
+                    return null;
+                }
+            """)
+            log("sesskey", sesskey)
+
+            # Step 3: calendar API raw response
+            if sesskey:
+                past   = int((datetime.now() - timedelta(days=30)).timestamp())
+                future = int((datetime.now() + timedelta(days=90)).timestamp())
+                raw = await self._page.evaluate(f"""
+                    async () => {{
+                        try {{
+                            const r = await fetch('/lib/ajax/service.php?sesskey={sesskey}&info=core_calendar_get_action_events_by_timesort', {{
+                                method: 'POST',
+                                headers: {{'Content-Type': 'application/json'}},
+                                body: JSON.stringify([{{
+                                    methodname: 'core_calendar_get_action_events_by_timesort',
+                                    args: {{ timesortfrom: {past}, timesortto: {future}, limitnum: 100 }}
+                                }}])
+                            }});
+                            const text = await r.text();
+                            return text.substring(0, 2000);
+                        }} catch(e) {{ return 'fetch error: ' + e.message; }}
+                    }}
+                """)
+                log("calendar_api_raw", raw)
+
+            # Step 4: courses page
+            await self._page.goto(f"{MOODLE_URL}/my/courses.php", wait_until="domcontentloaded")
+            log("courses_page_url", self._page.url)
+            log("courses_page_title", await self._page.title())
+            course_links = await self._page.eval_on_selector_all(
+                "a[href*='/course/view.php']",
+                "els => els.slice(0,10).map(e => ({href: e.href, text: e.innerText.trim()}))"
+            )
+            log("course_links_found", course_links)
+
+            # Step 5: if no course/view links, try broader link search
+            if not course_links:
+                all_links = await self._page.eval_on_selector_all(
+                    "a[href*='course']",
+                    "els => els.slice(0,20).map(e => ({href: e.href, text: e.innerText.trim().substring(0,60)}))"
+                )
+                log("all_course_links_broad", all_links)
+
+            # Step 6: try dashboard timeline/assignments block
+            await self._page.goto(f"{MOODLE_URL}/my/", wait_until="domcontentloaded")
+            timeline_items = await self._page.eval_on_selector_all(
+                "[data-action='view-event'], .event-name, .assignment, a[href*='/mod/assign/view.php']",
+                "els => els.slice(0,10).map(e => ({tag: e.tagName, text: e.innerText.trim().substring(0,80), href: e.href||''}))"
+            )
+            log("dashboard_assignment_items", timeline_items)
+
+            # Step 7: check if enrolled courses via API
+            if sesskey:
+                courses_api = await self._page.evaluate(f"""
+                    async () => {{
+                        try {{
+                            const r = await fetch('/lib/ajax/service.php?sesskey={sesskey}&info=core_course_get_enrolled_courses_by_timeline_classification', {{
+                                method: 'POST',
+                                headers: {{'Content-Type': 'application/json'}},
+                                body: JSON.stringify([{{
+                                    methodname: 'core_course_get_enrolled_courses_by_timeline_classification',
+                                    args: {{ offset: 0, limit: 20, classification: 'inprogress', sort: 'ul.timeaccess desc' }}
+                                }}])
+                            }});
+                            const text = await r.text();
+                            return text.substring(0, 3000);
+                        }} catch(e) {{ return 'fetch error: ' + e.message; }}
+                    }}
+                """)
+                log("enrolled_courses_api", courses_api)
+
+        except Exception as e:
+            log("exception", str(e))
+
+        return report
 
     # ── Details ───────────────────────────────────────────────────────────────
 

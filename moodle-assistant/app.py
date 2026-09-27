@@ -155,6 +155,14 @@ async def solve(assignment_id: str):
     )
 
 
+@app.get("/api/debug")
+async def debug():
+    """Diagnostic endpoint — returns what Playwright sees during a scan attempt."""
+    if not moodle.logged_in:
+        raise HTTPException(401, "Not logged in")
+    return await moodle.debug_scan()
+
+
 @app.post("/api/submit/{assignment_id}")
 async def submit(assignment_id: str, body: SubmitBody):
     if not moodle.logged_in:
