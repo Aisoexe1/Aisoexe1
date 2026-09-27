@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moodle Assistant</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --accent:   #58a6ff;
+    --red:      #f85149;
+    --yellow:   #d29922;
+    --green:    #3fb950;
+    --red-bg:   rgba(248,81,73,.1);
+    --yellow-bg:rgba(210,153,34,.1);
+    --green-bg: rgba(63,185,80,.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 16px 60px;
+  }
+
+  .app { width: 100%; max-width: 660px; }
+
+  /* ── Login ── */
+  #login-screen {
+    margin-top: 80px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 36px;
+  }
+  #login-screen h1 { font-size: 20px; margin-bottom: 6px; }
+  #login-screen p  { color: var(--muted); margin-bottom: 28px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 13px; }
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.danger { background: var(--red); color: #fff; }
+  .btn.full { width: 100%; justify-content: center; }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .header-title { font-size: 17px; font-weight: 600; }
+  .header-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  /* ── Stats bar ── */
+  .stats {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 28px;
+    align-items: center;
+  }
+  .stat-num { font-size: 22px; font-weight: 700; }
+  .stat-label { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  /* ── Assignment card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    transition: border-color .15s;
+  }
+  .card:hover { border-color: #484f58; }
+  .card.red    { border-left: 3px solid var(--red); }
+  .card.yellow { border-left: 3px solid var(--yellow); }
+  .card.green  { border-left: 3px solid var(--green); }
+  .card.done   { opacity: .55; }
+
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    margin-top: 5px; flex-shrink: 0;
+  }
+  .dot.red    { background: var(--red); }
+  .dot.yellow { background: var(--yellow); }
+  .dot.green  { background: var(--green); }
+
+  .card-body { flex: 1; min-width: 0; }
+  .card-course { color: var(--muted); font-size: 12px; margin-bottom: 3px; }
+  .card-title  { font-weight: 600; font-size: 15px; line-height: 1.3; }
+  .card-due    { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .card-due span.urgent { color: var(--red); font-weight: 600; }
+  .card-due span.soon   { color: var(--yellow); font-weight: 600; }
+
+  .card-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .card-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--green-bg);
+    color: var(--green);
+    margin-top: 6px;
+  }
+
+  /* ── Bottom bar ── */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  /* ── Modal ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+    overflow-y: auto;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 680px;
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .modal-title  { font-size: 16px; font-weight: 600; }
+  .modal-course { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .modal-due    { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .close-btn {
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; padding: 2px 6px;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  .modal-section { padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  .modal-section h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
+
+  .description-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted);
+    max-height: 140px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  .answer-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    min-height: 160px;
+    max-height: 380px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    outline: none;
+    color: var(--text);
+  }
+  .answer-box[contenteditable="true"]:focus { border-color: var(--accent); }
+
+  .solve-status {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .modal-footer {
+    padding: 14px 24px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Notification ── */
+  .toast {
+    position: fixed;
+    bottom: 70px; left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.ok   { border-color: var(--green); color: var(--green); }
+  .toast.err  { border-color: var(--red);   color: var(--red); }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── LOGIN ── -->
+  <div id="login-screen">
+    <h1>🎓 Moodle Assistant</h1>
+    <p>Увійдіть у свій акаунт du.luguniv.edu.ua</p>
+
+    <div class="field">
+      <label>Логін</label>
+      <input id="inp-user" type="text" placeholder="username" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="login-err" style="color:var(--red);font-size:13px;margin-bottom:12px;min-height:18px"></div>
+    <button class="btn full" id="login-btn" onclick="doLogin()">Увійти</button>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div id="main-screen" class="hidden">
+    <div class="header">
+      <div>
+        <div class="header-title">🎓 Moodle Assistant</div>
+        <div class="header-sub" id="header-user"></div>
+      </div>
+      <button class="btn secondary" onclick="doLogout()">Вийти</button>
+    </div>
+
+    <div class="stats">
+      <div>
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-label">Всього завдань</div>
+      </div>
+      <div>
+        <div class="stat-num" id="stat-pending" style="color:var(--yellow)">0</div>
+        <div class="stat-label">Не вирішено</div>
+      </div>
+      <div>
+        <div class="stat-num" id="stat-urgent" style="color:var(--red)">0</div>
+        <div class="stat-label">Термінових</div>
+      </div>
+    </div>
+
+    <div id="assignment-list"></div>
+  </div>
+
+</div>
+
+<!-- ── SOLVE MODAL ── -->
+<div id="overlay" class="overlay hidden" onclick="closeModalOnBg(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="m-title">—</div>
+        <div class="modal-course" id="m-course"></div>
+        <div class="modal-due" id="m-due"></div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+
+    <div class="modal-section">
+      <h3>Умова завдання</h3>
+      <div class="description-box" id="m-desc">Завантаження…</div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Відповідь</h3>
+      <div
+        class="answer-box"
+        id="m-answer"
+        contenteditable="false"
+      >Натисніть «Вирішити» щоб Gemini написав відповідь.</div>
+      <div class="solve-status" id="m-status"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn secondary" id="btn-solve" onclick="solveActive()">✨ Вирішити</button>
+      <button class="btn secondary" id="btn-copy" onclick="copyAnswer()">📋 Копіювати</button>
+      <button class="btn" id="btn-submit" onclick="submitActive()">✅ Надіслати в Moodle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BOTTOM BAR ── -->
+<div class="bottom-bar" id="bottom-bar" style="display:none">
+  <button class="btn secondary" onclick="doScan()" id="btn-scan">🔍 Сканувати Moodle</button>
+  <button class="btn" onclick="solveAll()" id="btn-solve-all">✨ Вирішити нові</button>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let assignments = [];
+let activeId = null;
+let solving = false;
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+(async () => {
+  const s = await api('/api/status');
+  if (s.logged_in) {
+    showMain(s.username);
+    if (s.assignments_count > 0) {
+      const r = await api('/api/assignments');
+      assignments = r.assignments;
+      renderList();
+    }
+  }
+})();
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const u = document.getElementById('inp-user').value.trim();
+  const p = document.getElementById('inp-pass').value;
+  const errEl = document.getElementById('login-err');
+  const btn = document.getElementById('login-btn');
+
+  if (!u || !p) { errEl.textContent = 'Введіть логін та пароль'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Вхід…';
+  errEl.textContent = '';
+
+  const r = await api('/api/login', { username: u, password: p });
+  btn.disabled = false;
+  btn.textContent = 'Увійти';
+
+  if (r.success) {
+    showMain(u);
+  } else {
+    errEl.textContent = r.message || 'Помилка входу';
+  }
+}
+
+document.getElementById('inp-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogout() {
+  await api('/api/logout', {});
+  assignments = [];
+  document.getElementById('main-screen').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('bottom-bar').style.display = 'none';
+}
+
+function showMain(username) {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('main-screen').classList.remove('hidden');
+  document.getElementById('bottom-bar').style.display = 'flex';
+  document.getElementById('header-user').textContent = username;
+}
+
+// ── Scan ───────────────────────────────────────────────────────────────────────
+async function doScan() {
+  const btn = document.getElementById('btn-scan');
+  btn.disabled = true;
+  btn.textContent = '⏳ Сканування…';
+
+  const r = await api('/api/scan', {});
+  btn.disabled = false;
+  btn.textContent = '🔍 Сканувати Moodle';
+
+  if (r.assignments) {
+    assignments = r.assignments;
+    renderList();
+    toast(r.count === 0 ? 'Завдань не знайдено' : `Знайдено ${r.count} завдань`, r.count === 0 ? 'err' : 'ok');
+  }
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function urgency(ts) {
+  if (!ts) return 'green';
+  const days = (ts - Date.now() / 1000) / 86400;
+  if (days <= 1) return 'red';
+  if (days <= 4) return 'yellow';
+  return 'green';
+}
+
+function daysLabel(ts) {
+  if (!ts) return '';
+  const days = Math.ceil((ts - Date.now() / 1000) / 86400);
+  if (days < 0) return 'прострочено';
+  if (days === 0) return 'сьогодні';
+  if (days === 1) return 'завтра';
+  return `${days} дн.`;
+}
+
+function renderList() {
+  const el = document.getElementById('assignment-list');
+
+  const pending = assignments.filter(a => !a.submitted);
+  const urgent  = assignments.filter(a => !a.submitted && urgency(a.due_timestamp) === 'red');
+
+  document.getElementById('stat-total').textContent   = assignments.length;
+  document.getElementById('stat-pending').textContent = pending.length;
+  document.getElementById('stat-urgent').textContent  = urgent.length;
+
+  if (assignments.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">📭</div>
+      <div>Немає завдань</div>
+      <div style="font-size:12px;margin-top:6px">Натисніть «Сканувати Moodle»</div>
+    </div>`;
+    return;
+  }
+
+  // Sort: urgent first
+  const sorted = [...assignments].sort((a, b) => {
+    const ua = urgency(a.due_timestamp), ub = urgency(b.due_timestamp);
+    const order = { red: 0, yellow: 1, green: 2 };
+    return (order[ua] - order[ub]) || (a.due_timestamp - b.due_timestamp);
+  });
+
+  el.innerHTML = sorted.map(a => {
+    const u = urgency(a.due_timestamp);
+    const dl = daysLabel(a.due_timestamp);
+    const dueClass = u === 'red' ? 'urgent' : u === 'yellow' ? 'soon' : '';
+    return `
+<div class="card ${u} ${a.submitted ? 'done' : ''}" id="card-${a.id}">
+  <div class="dot ${u}"></div>
+  <div class="card-body">
+    <div class="card-course">${a.course || 'Без курсу'}</div>
+    <div class="card-title">${a.title}</div>
+    <div class="card-due">
+      до ${a.due_date}
+      ${dl ? `&nbsp;·&nbsp;<span class="${dueClass}">${dl}</span>` : ''}
+    </div>
+    ${a.submitted ? '<div class="card-badge">✓ Надіслано</div>' : ''}
+    <div class="card-actions">
+      <button class="btn" onclick="openModal('${a.id}')">✨ Вирішити</button>
+    </div>
+  </div>
+</div>`;
+  }).join('');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+async function openModal(id) {
+  activeId = id;
+  const a = assignments.find(x => x.id === id);
+
+  document.getElementById('m-title').textContent  = a.title;
+  document.getElementById('m-course').textContent = a.course || '';
+  document.getElementById('m-due').textContent    = a.due_date ? `до ${a.due_date}` : '';
+  document.getElementById('m-desc').textContent   = 'Завантаження…';
+  document.getElementById('m-answer').textContent = 'Натисніть «Вирішити» щоб Gemini написав відповідь.';
+  document.getElementById('m-answer').contentEditable = 'false';
+  document.getElementById('m-status').innerHTML = '';
+
+  document.getElementById('overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // Fetch details
+  const d = await api(`/api/assignment/${id}/details`);
+  document.getElementById('m-desc').textContent = d.description || 'Опис не знайдено.';
+
+  if (d.solution) {
+    document.getElementById('m-answer').textContent = d.solution;
+    document.getElementById('m-answer').contentEditable = 'true';
+    setStatus('');
+  }
+
+  if (d.submitted) {
+    document.getElementById('m-status').textContent = '✓ Вже надіслано в Moodle';
+  }
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+  activeId = null;
+}
+
+function closeModalOnBg(e) {
+  if (e.target === document.getElementById('overlay')) closeModal();
+}
+
+// ── Solve ─────────────────────────────────────────────────────────────────────
+async function solveActive() {
+  if (!activeId || solving) return;
+  solving = true;
+
+  const answerEl = document.getElementById('m-answer');
+  const btn      = document.getElementById('btn-solve');
+
+  answerEl.textContent = '';
+  answerEl.contentEditable = 'false';
+  btn.disabled = true;
+  setStatus('<div class="spinner"></div> Gemini думає…');
+
+  try {
+    const res = await fetch(`/api/solve/${activeId}`);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = JSON.parse(line.slice(6));
+
+        if (payload.text) {
+          answerEl.textContent += payload.text;
+          answerEl.scrollTop = answerEl.scrollHeight;
+        }
+        if (payload.error) {
+          setStatus('❌ ' + payload.error);
+        }
+        if (payload.done) {
+          answerEl.contentEditable = 'true';
+          setStatus('✓ Готово — можна редагувати');
+        }
+      }
+    }
+  } catch (e) {
+    setStatus('❌ Помилка: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    solving = false;
+  }
+}
+
+async function solveAll() {
+  const btn = document.getElementById('btn-solve-all');
+  const pending = assignments.filter(a => !a.submitted);
+  if (!pending.length) { toast('Немає нових завдань', 'err'); return; }
+
+  btn.disabled = true;
+  btn.textContent = `⏳ Вирішую 0/${pending.length}…`;
+
+  for (let i = 0; i < pending.length; i++) {
+    const a = pending[i];
+    btn.textContent = `⏳ Вирішую ${i+1}/${pending.length}…`;
+
+    // Fetch details if needed
+    await api(`/api/assignment/${a.id}/details`);
+
+    // Solve (collect full response)
+    await fetch(`/api/solve/${a.id}`).then(async r => {
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+      }
+    });
+  }
+
+  btn.disabled = false;
+  btn.textContent = '✨ Вирішити нові';
+  toast(`Вирішено ${pending.length} завдань`, 'ok');
+  renderList();
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+async function submitActive() {
+  if (!activeId) return;
+
+  const answer = document.getElementById('m-answer').textContent.trim();
+  if (!answer) { toast('Спочатку вирішіть завдання', 'err'); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '⏳ Надсилання…';
+
+  const r = await api(`/api/submit/${activeId}`, { answer });
+
+  btn.disabled = false;
+  btn.textContent = '✅ Надіслати в Moodle';
+
+  if (r.success) {
+    toast(r.message, 'ok');
+    // Update local state
+    const a = assignments.find(x => x.id === activeId);
+    if (a) a.submitted = true;
+    renderList();
+    setTimeout(closeModal, 800);
+  } else {
+    toast(r.message || 'Помилка надсилання', 'err');
+  }
+}
+
+function copyAnswer() {
+  const text = document.getElementById('m-answer').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Скопійовано', 'ok'));
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+async function api(path, body) {
+  const opts = body !== undefined
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { method: 'GET' };
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function setStatus(html) {
+  document.getElementById('m-status').innerHTML = html;
+}
+
+let toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
