@@ -17,7 +17,13 @@ class MoodleClient:
 
     async def start(self):
         self._pw = await async_playwright().start()
-        self._browser = await self._pw.chromium.launch(headless=True)
+        # Use pre-installed Chromium; fall back to auto-detect
+        import os as _os
+        _exe = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+        launch_kwargs: dict = {"headless": True}
+        if _os.path.exists(_exe):
+            launch_kwargs["executable_path"] = _exe
+        self._browser = await self._pw.chromium.launch(**launch_kwargs)
         ctx = await self._browser.new_context(
             viewport={"width": 1280, "height": 900},
             ignore_https_errors=True,
